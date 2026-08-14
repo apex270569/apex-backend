@@ -4,6 +4,35 @@ const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
+const { ethers } = require('ethers');
+
+// Configuración de la Billetera Maestra
+const MASTER_SEED = process.env.MASTER_SEED_PHRASE;
+const POLYGON_RPC = 'https://polygon-rpc.com'; // Conexión a la red de Polygon
+
+// Función para generar una dirección derivada para un usuario
+function generarDireccionUsuario(userId) {
+    // Deriva una clave privada única a partir de la semilla + el ID del usuario
+    const hdNode = ethers.HDNodeWallet.fromPhrase(MASTER_SEED);
+    const childNode = hdNode.derivePath(`m/44'/60'/0'/0/${userId}`);
+    return { 
+        address: childNode.address, 
+        privateKey: childNode.privateKey // Esta clave se usa para firmar retiros, no se envía al frontend
+    };
+}
+
+// Función para verificar el saldo de una dirección en la blockchain
+async function verificarSaldoBlockchain(address) {
+    try {
+        const provider = new ethers.JsonRpcProvider(POLYGON_RPC);
+        const balanceWei = await provider.getBalance(address);
+        // Convertir de Wei a ETH (Polygon usa la misma nomenclatura)
+        return ethers.formatEther(balanceWei);
+    } catch (error) {
+        console.error("Error verificando saldo:", error);
+        return "0.0";
+    }
+}
 
 const app = express();
 app.use(cors());
@@ -36,11 +65,15 @@ app.post('/api/register', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
+    // Generar dirección de billetera derivada
+    const walletData = generarDireccionUsuario(Date.now()); 
+    const polygonAddress = walletData.address;
+
     // Insertar nuevo usuario
     const result = await pool.query(
-      `INSERT INTO usuarios (telefono, nombre, apellido, username, password_hash, balance, puntos, plan, codigo_referido, es_admin, es_super_admin, fecha_registro) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
-      [telefono, nombre, apellido, username, passwordHash, 0, 0, 'Sin plan', 'APEX' + Math.floor(Math.random() * 100000), false, false, new Date()]
+      `INSERT INTO usuarios (telefono, nombre, apellido, username, password_hash, balance, puntos, plan, codigo_referido, es_admin, es_super_admin, fecha_registro, polygon_address) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
+      [telefono, nombre, apellido, username, passwordHash, 0, 0, 'Sin plan', 'APEX' + Math.floor(Math.random() * 100000), false, false, new Date(), polygonAddress]
     );
 
     res.json({ success: true, user: result.rows[0] });
@@ -115,6 +148,24 @@ app.post('/api/update-balance', async (req, res) => {
     console.error(err.message);
     res.status(500).json({ error: 'Error en el servidor' });
   }
+});
+
+// Ruta para que el usuario verifique su saldo desde la blockchain
+app.get('/api/check-balance/:telefono', async (req, res) => {
+    try {
+        const { telefono } = req.params;
+        // Obtener la dirección del usuario desde la BD
+        const result = await pool.query('SELECT polygon_address FROM usuarios WHERE telefono = $1', [telefono]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+        const address = result.rows[0].polygon_address;
+        const balance = await verificarSaldoBlockchain(address);
+        res.json({ address, balance });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: 'Error verificando saldo' });
+    }
 });
 
 // Iniciar el servidor
