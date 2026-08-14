@@ -69,8 +69,8 @@ app.post('/api/register', async (req, res) => {
     const walletData = generarDireccionUsuario(Date.now()); 
     const polygonAddress = walletData.address;
 
-    // Insertar nuevo usuario
-       const result = await pool.query(
+        // Insertar nuevo usuario
+    const result = await pool.query(
       `INSERT INTO usuarios (telefono, nombre, apellido, username, password_hash, balance, puntos, plan, codigo_referido, es_admin, es_super_admin, fecha_registro, polygon_address) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
       [telefono, nombre, apellido, username || null, passwordHash, 0, 0, 'Sin plan', 'APEX' + Math.floor(Math.random() * 100000), false, false, new Date(), polygonAddress]
