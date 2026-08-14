@@ -78,6 +78,7 @@ app.post('/api/register', async (req, res) => {
 
     res.json({ success: true, user: result.rows[0] });
   } catch (err) {
+    console.log("❌ Error al guardar en Neon:", err);
     console.error(err.message);
     res.status(500).json({ error: 'Error en el servidor' });
   }
