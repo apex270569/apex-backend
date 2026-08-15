@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const app = express();
-const port = process.env.PORT || 8080;
+const port = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
@@ -18,7 +18,7 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// ✅ RUTA DE PRUEBA (IMPORTANTE)
+// Ruta de prueba
 app.get('/api/test', (req, res) => {
   res.json({ message: 'Backend funcionando correctamente' });
 });
@@ -145,11 +145,7 @@ app.get('/api/prizes', async (req, res) => {
   }
 });
 
-// Iniciar servidor
-app.listen(port, () => {
-  console.log(`Servidor corriendo en puerto ${port}`);
-});
-// Iniciar servidor
-app.listen(port, () => {
+// ✅ INICIAR SERVIDOR - SOLO UNA VEZ
+app.listen(port, '0.0.0.0', () => {
   console.log(`Servidor corriendo en puerto ${port}`);
 });
