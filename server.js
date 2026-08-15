@@ -18,17 +18,16 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// Ruta de prueba
+// ✅ RUTA DE PRUEBA (IMPORTANTE)
 app.get('/api/test', (req, res) => {
   res.json({ message: 'Backend funcionando correctamente' });
 });
 
-// Ruta de registro de usuario
+// Ruta de registro
 app.post('/api/register', async (req, res) => {
   try {
     const { username, email, password, fullName, phone, address, referralCode } = req.body;
     
-    // Verificar si el usuario ya existe
     const userExists = await pool.query(
       'SELECT * FROM users WHERE email = $1 OR username = $2',
       [email, username]
@@ -38,18 +37,11 @@ app.post('/api/register', async (req, res) => {
       return res.status(400).json({ error: 'El usuario o email ya existe' });
     }
     
-    // Hashear contraseña (NUNCA guardar en texto plano)
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
-    
-    // Generar código de referido único
     const referralCodeGenerated = username.substring(0, 4) + Math.random().toString(36).substring(2, 6);
-    
-    // Aquí es donde usarás tu frase semilla para generar la dirección de wallet
-    // POR AHORA, usamos un placeholder
     const walletAddress = `wallet_${username}_${Date.now()}`;
     
-    // Insertar usuario en la base de datos
     const result = await pool.query(
       `INSERT INTO users 
        (username, email, password_hash, full_name, phone, address, wallet_address, referral_code, referred_by) 
@@ -74,7 +66,6 @@ app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     
-    // Buscar usuario por email
     const result = await pool.query(
       'SELECT * FROM users WHERE email = $1',
       [email]
@@ -85,15 +76,12 @@ app.post('/api/login', async (req, res) => {
     }
     
     const user = result.rows[0];
-    
-    // Verificar contraseña
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
     
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Credenciales inválidas' });
     }
     
-    // Generar token JWT
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
       process.env.JWT_SECRET,
@@ -120,7 +108,7 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// Ruta para obtener datos del usuario (dashboard)
+// Ruta para obtener datos del usuario
 app.get('/api/user/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -135,44 +123,6 @@ app.get('/api/user/:id', async (req, res) => {
     }
     
     res.json(result.rows[0]);
-    
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Error en el servidor' });
-  }
-});
-
-// Ruta para obtener transacciones del usuario
-app.get('/api/user/:id/transactions', async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const result = await pool.query(
-      'SELECT * FROM transactions WHERE user_id = $1 ORDER BY created_at DESC',
-      [id]
-    );
-    
-    res.json(result.rows);
-    
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Error en el servidor' });
-  }
-});
-
-// Ruta para crear una transacción (depósito/retiro)
-app.post('/api/transactions', async (req, res) => {
-  try {
-    const { userId, type, amount, paymentMethod, reference } = req.body;
-    
-    const result = await pool.query(
-      `INSERT INTO transactions (user_id, type, amount, payment_method, reference, status) 
-       VALUES ($1, $2, $3, $4, $5, 'pending') 
-       RETURNING *`,
-      [userId, type, amount, paymentMethod, reference]
-    );
-    
-    res.status(201).json(result.rows[0]);
     
   } catch (error) {
     console.error('Error:', error);
@@ -195,21 +145,10 @@ app.get('/api/prizes', async (req, res) => {
   }
 });
 
-// Ruta para obtener códigos promocionales
-app.get('/api/promo-codes', async (req, res) => {
-  try {
-    const result = await pool.query(
-      'SELECT * FROM promo_codes WHERE is_active = true AND (expires_at IS NULL OR expires_at > NOW())'
-    );
-    
-    res.json(result.rows);
-    
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Error en el servidor' });
-  }
+// Iniciar servidor
+app.listen(port, () => {
+  console.log(`Servidor corriendo en puerto ${port}`);
 });
-
 // Iniciar servidor
 app.listen(port, () => {
   console.log(`Servidor corriendo en puerto ${port}`);
