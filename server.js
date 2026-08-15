@@ -149,3 +149,7 @@ app.get('/api/prizes', async (req, res) => {
 app.listen(port, () => {
   console.log(`Servidor corriendo en puerto ${port}`);
 });
+// Iniciar servidor
+app.listen(port, () => {
+  console.log(`Servidor corriendo en puerto ${port}`);
+});
